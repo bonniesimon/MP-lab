@@ -1,0 +1,35 @@
+ASSUME DS:DATA, CS:CODE
+
+DATA SEGMENT
+NH DW 5432H
+NL DW 0ABCDH
+ND DW 0BBBBH
+REM DW 1 DUP(?)
+QH DW 1 DUP(?)
+QL DW 1 DUP(?)
+ZERR DB 0DH, 0AH, "CANNOT DIVIDE BY ZERO","$"
+DATA ENDS
+
+CODE SEGMENT
+START:  MOV AX, DATA
+        MOV DS, AX
+
+        MOV AX, NH
+        MOV DX, 0000H
+        CMP ND, 0000H
+        JZ LBLER
+        DIV ND
+        MOV QH, AX
+        MOV AX, NL
+        DIV ND
+        MOV QL, AX
+        MOV REM, DX
+        JMP LBL2
+LBLER:  MOV DX, OFFSET ZERR
+        MOV AH, 09H
+        INT 21H
+
+LBL2:   MOV AH, 4CH
+        INT 21H
+CODE ENDS
+        END START

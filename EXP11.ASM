@@ -23,14 +23,18 @@ ENDM
 
 DATA SEGMENT
         MSG1 DB 0DH, 0AH, "ENTER THE STRING :: $"
-        MSG2 DB 0DH, 0AH, "ENTER THE SUBSTRING :: $"
+        MSG2 DB 0DH, 0AH, "ENTER THE SUBSTRING TO BE FOUND :: $"
+        MSG3 DB 0DH, 0AH, "ENTER THE SUBSTRING REPLACEMENT :: $"
         SUSS DB 0DH, 0AH, "SUBSTRING FOUND!!$"
         FAIL DB 0DH, 0AH, "SUBSTRING NOT FOUND!$"
         LENS DB 1 DUP(?)
         LENSB DB 1 DUP(?)
-        STR DB 80H DUP(?)
-        STRSB DB 80H DUP(?)
-        TEMP DB 1 DUP(?)
+        STR DB 80H DUP(0)
+        FIND DB 80H DUP(0)
+        SBSTR DB 80H DUP(0)
+        RESULT DB 80H DUP('$')
+        I DW ?
+        J DW ?
 DATA ENDS
 
 CODE SEGMENT
@@ -42,6 +46,24 @@ START:  MOV AX, DATA
         ;------ INPUT STRING
         MOV SI, OFFSET STR
         MOV CX, 0000H
+AGAIN:  MOV AH, 01H
+        INT 21H
+        CMP AL, 0DH
+        JE NEXT
+        MOV [SI], AL
+        INC SI
+        INC CL
+        JMP AGAIN
+NEXT:  ;------STRING INPUT FINISHED
+        ;----MOVING LENGTH OF STRING TO LENS
+        MOV LENS, CL
+
+        ;----DISPLAY INPUT SUBSTRING MSG
+        DISPLAY MSG2
+
+        ;----INPUTING FIND STRING
+        MOV SI, OFFSET FIND
+        MOV CX, 0000H
 AGAIN1:  MOV AH, 01H
         INT 21H
         CMP AL, 0DH
@@ -50,69 +72,65 @@ AGAIN1:  MOV AH, 01H
         INC SI
         INC CL
         JMP AGAIN1
-NEXT1:   MOV [SI], BYTE PTR '$'
-        ;------STRING INPUT FINISHED
-        ;----MOVING LENGTH OF STRING TO LENS
-        MOV LENS, CL
+NEXT1:  ;----FIND INPUT FINISHED
+        ;---MOV LENGTH OF STRSB TO LENSB
+        MOV LENSB, CL
 
-        ;----DISPLAY INPUT SUBSTRING MSG
-        DISPLAY MSG2
-
-        ;----INPUTING SUBSTRIN
-        MOV SI, OFFSET STRSB
-        MOV CX, 0000H
-AGAIN2:  MOV AH, 01H
+        ;----DISPLAY INPUT MSG
+        DISPLAY MSG3
+        ;----INPUT SUBSTRING REPLACEMENT
+        MOV SI, OFFSET SBSTR
+AGAIN2: MOV AH, 01H
         INT 21H
         CMP AL, 0DH
         JE NEXT2
         MOV [SI], AL
         INC SI
-        INC CL
         JMP AGAIN2
-NEXT2:  MOV [SI], BYTE PTR '$'
-        ;----STRSB INPUT FINISHED
-        ;---MOV LENGTH OF STRSB TO LENSB
-        MOV LENSB, CL
+NEXT2:  ;----SBSTR INPUT FINISHED
 
-        ;----TODO: CONVERT LENS AND LENSB TO DW
-        ; SO THAT WE CAN USE CX AND DX
-        ;----FOR USING LOOP
-        ;AS IN THE MRSARAF25 GITHUB REPO
-        MOV CL, LENS ;----LENGTH OF STRING IN CX
-        MOV BL, LENSB ;----LENGTH OF SUBSTRING IN BX
-        MOV CH, 00H
-        MOV BH, 00H
-        MOV DX, 0000H ;----TO CHECK THE LENGTH OF POTENTION SUBSTRING IN THE STRING
-        ;DISPLAYINT CH
-        ;DISPLAYINT CL
-
-        MOV SI, 0000H
-        MOV DI, 0000H
-        CLD
-L1:     MOV AL, STRSB[DI] 
-        CMP STR[SI], AL
+        MOV I, OFFSET STR
+        MOV J, OFFSET RESULT
+        MOV SI, I
+        LEA DI, FIND
+SEARCH: MOV AL, [DI]
+        CMP AL, 0
         JE MATCH
-        MOV DI, 0000H
-        MOV DX, 0000H
-        INC SI
-        MOV AL, STR[SI]
-        CMP AL, '$'
-        JE CHECK
-        JMP L1
-MATCH:  INC DX
+        CMP BYTE PTR [SI], 0
+        JE MISMATCH
+        CMP [SI], AL
+        JNE MISMATCH
         INC SI
         INC DI
-        CMP BX, DX
-        JNZ L1
+        JMP SEARCH
+MATCH:  MOV I, SI
+        DEC I
+        LEA DI, SBSTR
 
-CHECK:  CMP BX, DX
-        JNZ NFD
-        DISPLAY SUSS
-        JMP FINAL
+REPLACE:
+        MOV AL, [DI]
+        CMP AL, 0
+        JE NEXT3
+        MOV SI, J
+        MOV [SI], AL
+        INC J
+        INC DI
+        JMP REPLACE
 
-NFD:    DISPLAY FAIL
+MISMATCH:
+        MOV SI, I
+        MOV DI, J
+        MOV AL, [SI]
+        MOV [DI], AL
+        INC J
+NEXT3:  LEA DI, FIND
+        INC I
+        MOV SI, I
+        CMP BYTE PTR [SI], 0
+        JNE SEARCH
+FINAL:  DISPLAY RESULT
 
-FINAL:  MOV AH, 4CH
+        MOV AH, 4CH
         INT 21H
 
 CODE ENDS
